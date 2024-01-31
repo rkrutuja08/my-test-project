@@ -1,0 +1,101 @@
+name: demopipeline
+
+on: 
+  pull_request:
+    branches: [ main ] 
+
+environment: 
+    - Dev
+    - Test
+    - Prod    
+    
+jobs:  
+- job: run_build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out action
+    - uses: actions/checkout@v2
+    - name: Set up Java
+      uses: actions/setup-java@v1
+      with:
+        java-version: '1.8'
+        distribution: 'adopt'
+        cache: maven
+    - name: Build with Maven
+      run: mvn clean install
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: sample-java-app
+        path: target/
+ 
+- job: create_release
+    runs-on: ubuntu-latest
+    depends-on: run_build
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Create release
+      uses: actions/create-release@v1
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+    
+    - name: Download Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: sample-java-app
+        path: target/   
+        
+- job: dev_deploy
+    runs-on: ubuntu-latest
+    environment: 'Dev'
+    depends_on: create_release
+ 
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: sample-java-app
+        path: target/
+ 
+    - name: Deploy to Dev
+      run: echo "Deploying to Dev environment"
+
+- job: test_deploy
+     runs-on: ubuntu-latest
+    environment: 'Test'
+    depends_on: dev_deploy
+ 
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: sample-java-app
+        path: target/
+ 
+    - name: Deploy to Test
+      run: echo "Deploying to Test environment"
+
+- job: prod_deploy
+     runs-on: ubuntu-latest
+    environment: 'Prod'
+    depends_on: [dev_deploy,test_deploy]
+ 
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: sample-java-app
+        path: target/
+ 
+    - name: Deploy to Prod
+      run: echo "Deploying to Prod environment"
+      
+    
+
+    
+   
+    
